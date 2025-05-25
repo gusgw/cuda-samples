@@ -51,8 +51,28 @@ __global__ void SimpleKernel(float *src, float *dst)
 
 inline bool IsAppBuiltAs64() { return sizeof(void *) == 8; }
 
+bool CheckDataGPUvsHost(int checkid, float *h0, float *g, float factor, size_t buf_size)
+{
+    checkCudaErrors(cudaMemcpy(h0, g, buf_size, cudaMemcpyDefault));
+    int error_count = 0;
+    for (int i = 0; i < buf_size / sizeof(float); i++) {
+        // Re-generate input data and apply 2x '* 2.0f' computation of both
+        // kernel runs
+        if (h0[i] != float(i % 4096) * factor) {
+            printf("---> In check ID %d comparison @ element %i: val = %f, ref = %f\n", checkid, i, h0[i], (float(i % 4096) * factor));
+
+            if (error_count++ > 10) {
+                break;
+            }
+        }
+    }
+    return (error_count == 0);
+}
+
 int main(int argc, char **argv)
 {
+    int error_count = 0;
+
     printf("[%s] - Starting...\n", argv[0]);
 
     if (!IsAppBuiltAs64()) {
@@ -144,6 +164,19 @@ int main(int argc, char **argv)
     float *h0;
     checkCudaErrors(cudaMallocHost(&h0, buf_size)); // Automatically portable with UVA
 
+    // Use the verification function to check initialisation of g0
+    if (!CheckDataGPUvsHost(0, h0, g0, 0.0f, buf_size)) {
+        printf("\n---> Array on g0 not initialised to 0.0\n");
+    } else {
+        printf("\n---> Array on g0 initialised to 0.0\n");
+    }
+    // Use the verification function to check initialisation of g1
+    if (!CheckDataGPUvsHost(0, h0, g1, 0.0f, buf_size)) {
+        printf("\n---> Array on g1 not initialised to 0.0\n\n");
+    } else {
+        printf("\n---> Array on g1 initialised to 0.0\n\n");
+    }
+
     // Create CUDA event handles
     printf("Creating event handles...\n");
     cudaEvent_t start_event, stop_event;
@@ -198,8 +231,16 @@ int main(int argc, char **argv)
            gpuid[1]);
     checkCudaErrors(cudaSetDevice(gpuid[1]));
     SimpleKernel<<<blocks, threads>>>(g0, g1);
-
+    checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
+
+    // Check data after one copy
+    if (!CheckDataGPUvsHost(2, h0, g1, 2.0f, buf_size)) {
+        error_count++;
+        printf("\n---> Verification of g1 after copy failed!\n\n");
+    } else {
+        printf("\n---> Verification of g1 after copy passed\n\n");
+    }
 
     // Run kernel on GPU 0, reading input from the GPU 1 buffer, writing
     // output to the GPU 0 buffer
@@ -210,25 +251,18 @@ int main(int argc, char **argv)
            gpuid[0]);
     checkCudaErrors(cudaSetDevice(gpuid[0]));
     SimpleKernel<<<blocks, threads>>>(g1, g0);
-
+    checkCudaErrors(cudaGetLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Copy data back to host and verify
     printf("Copy data back to host from GPU%d and verify results...\n", gpuid[0]);
-    checkCudaErrors(cudaMemcpy(h0, g0, buf_size, cudaMemcpyDefault));
 
-    int error_count = 0;
-
-    for (int i = 0; i < buf_size / sizeof(float); i++) {
-        // Re-generate input data and apply 2x '* 2.0f' computation of both
-        // kernel runs
-        if (h0[i] != float(i % 4096) * 2.0f * 2.0f) {
-            printf("Verification error @ element %i: val = %f, ref = %f\n", i, h0[i], (float(i % 4096) * 2.0f * 2.0f));
-
-            if (error_count++ > 10) {
-                break;
-            }
-        }
+    // Use the verification function instead of direct checking
+    if (!CheckDataGPUvsHost(3, h0, g0, 4.0f, buf_size)) {
+        error_count++;
+        printf("\n---> Verification of g0 after copy back failed!\n\n");
+    } else {
+        printf("\n---> Verification of g0 after copy back passed\n\n");
     }
 
     // Disable peer access (also unregisters memory for non-UVA cases)
