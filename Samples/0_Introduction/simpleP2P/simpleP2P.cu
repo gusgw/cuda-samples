@@ -49,6 +49,15 @@ __global__ void SimpleKernel(float *src, float *dst)
     dst[idx]      = src[idx] * 2.0f;
 }
 
+__global__ void SimpleKernel(size_t n, float *src, float *dst)
+{
+    // Just a dummy kernel, doing enough for us to verify that everything
+    // worked
+    const int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if((0<=idx)&&(idx<n))
+        dst[idx]      = src[idx] * 2.0f;
+}
+
 inline bool IsAppBuiltAs64() { return sizeof(void *) == 8; }
 
 bool CheckDataGPUvsHost(int checkid, float *h0, float *g, float factor, size_t buf_size)
@@ -230,7 +239,11 @@ int main(int argc, char **argv)
            gpuid[0],
            gpuid[1]);
     checkCudaErrors(cudaSetDevice(gpuid[1]));
+#ifdef BOUNDS_CHECK
+    SimpleKernel<<<blocks, threads>>>((size_t) buf_size / sizeof(float), g0, g1);
+#else
     SimpleKernel<<<blocks, threads>>>(g0, g1);
+#endif
     checkCudaErrors(cudaPeekAtLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
@@ -250,7 +263,11 @@ int main(int argc, char **argv)
            gpuid[1],
            gpuid[0]);
     checkCudaErrors(cudaSetDevice(gpuid[0]));
+#ifdef BOUNDS_CHECK
+    SimpleKernel<<<blocks, threads>>>((size_t) buf_size / sizeof(float), g1, g0);
+#else
     SimpleKernel<<<blocks, threads>>>(g1, g0);
+#endif
     checkCudaErrors(cudaPeekAtLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
