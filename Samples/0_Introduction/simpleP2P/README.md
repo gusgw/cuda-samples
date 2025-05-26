@@ -41,7 +41,7 @@ This version of simpleP2P.cu has minor modifications to check exactly how the
 arrays used to check P2P communication are initialised and to check their values
 at more stages during the run.
 
-Changes are on a branch `debug_p2p_communication` in [a fork of `cuda-samples`](https://github.com/gusgw/cuda-samples.git)
+Changes are on a branch `p2p` in [a fork of `cuda-samples`](https://github.com/gusgw/cuda-samples.git)
 
 The code was compiled on `tooarrana2` after
 
