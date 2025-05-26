@@ -231,7 +231,7 @@ int main(int argc, char **argv)
            gpuid[1]);
     checkCudaErrors(cudaSetDevice(gpuid[1]));
     SimpleKernel<<<blocks, threads>>>(g0, g1);
-    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaPeekAtLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Check data after one copy
@@ -251,7 +251,7 @@ int main(int argc, char **argv)
            gpuid[0]);
     checkCudaErrors(cudaSetDevice(gpuid[0]));
     SimpleKernel<<<blocks, threads>>>(g1, g0);
-    checkCudaErrors(cudaGetLastError());
+    checkCudaErrors(cudaPeekAtLastError());
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Copy data back to host and verify
