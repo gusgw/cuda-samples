@@ -244,7 +244,9 @@ int main(int argc, char **argv)
 #else
     SimpleKernel<<<blocks, threads>>>(g0, g1);
 #endif
+#ifdef ERROR_PEEK
     checkCudaErrors(cudaPeekAtLastError());
+#endif
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Check data after one copy
@@ -268,7 +270,9 @@ int main(int argc, char **argv)
 #else
     SimpleKernel<<<blocks, threads>>>(g1, g0);
 #endif
+#ifdef ERROR_PEEK
     checkCudaErrors(cudaPeekAtLastError());
+#endif
     checkCudaErrors(cudaDeviceSynchronize());
 
     // Copy data back to host and verify
