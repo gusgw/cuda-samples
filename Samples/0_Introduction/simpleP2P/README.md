@@ -34,3 +34,64 @@ Download and install the [CUDA Toolkit](https://developer.nvidia.com/cuda-downlo
 Make sure the dependencies mentioned in [Dependencies]() section above are installed.
 
 ## References (for more details)
+
+## Debugging problems with peer-to-peer communication
+
+A fourth A100 on the same node is not able to communicate with its peers.
+
+This version of simpleP2P.cu has minor modifications to check exactly how the
+arrays used to check P2P communication are initialised and how they acquire
+incorrect values when the tests fail.
+
+Changes are on a branch `debug_p2p_communication` in [a fork of `cuda-samples`](https://github.com/gusgw/cuda-samples.git)
+
+The code was compiled on `tooarrana2` after
+
+```
+module load gcc/13.3.0
+module load cuda/12.6.0
+```
+
+using
+
+```
+nvcc  -I/home/agray/src/cas/hpc/cuda-samples/Common simpleP2P.cu -o simpleP2P.x
+```
+
+Compile with `-DBOUNDS_CHECK` to put bounds checking into the kernel, and with `-DERROR_PEEK` to check for a CUDA error from the kernels.
+
+The output I see is:
+
+```
+[agray@gina13 simpleP2P]$ CUDA_VISIBLE_DEVICES=0,1 ./simpleP2P.x
+[./simpleP2P.x] - Starting...
+Checking for multiple GPUs...
+CUDA-capable device count: 2
+
+Checking GPU(s) for support of peer to peer memory access...
+> Peer access from NVIDIA A100-SXM4-80GB (GPU0) -> NVIDIA A100-SXM4-80GB (GPU1) : Yes
+> Peer access from NVIDIA A100-SXM4-80GB (GPU1) -> NVIDIA A100-SXM4-80GB (GPU0) : Yes
+Enabling peer access between GPU0 and GPU1...
+Allocating buffers (64MB on GPU0, GPU1 and CPU Host)...
+
+---> Array on g0 initialised to 0.0
+
+---> Array on g1 initialised to 0.0
+
+Creating event handles...
+cudaMemcpyPeer / cudaMemcpy between GPU0 and GPU1: 85.91GB/s
+Preparing host buffer and memcpy to GPU0...
+Run kernel on GPU1, taking source data from GPU0 and writing to GPU1...
+
+---> Verification of g1 after copy passed
+
+Run kernel on GPU0, taking source data from GPU1 and writing to GPU0...
+Copy data back to host from GPU0 and verify results...
+
+---> Verification of g0 after copy back passed
+
+Disabling peer access...
+Shutting down...
+Test passed
+```
+
